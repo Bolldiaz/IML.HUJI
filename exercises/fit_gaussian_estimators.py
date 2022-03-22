@@ -5,6 +5,7 @@ import plotly.io as pio
 import matplotlib.pyplot as plt
 
 pio.templates.default = "simple_white"
+form = "{:.3f}"
 
 
 def test_univariate_gaussian():
@@ -18,7 +19,7 @@ def test_univariate_gaussian():
     loss = []
     un = UnivariateGaussian()
     for sample_size in range(10, 1010, 10):
-        un.fit(np.random.choice(X, size=sample_size, replace=False))
+        un.fit(X[:sample_size])
         loss.append(np.abs(un.mu_ - 10))
 
     graph = pex.line(x=range(10, 1010, 10),
@@ -70,7 +71,6 @@ def test_multivariate_gaussian():
     max_coord = np.where(log_likelihood == np.amax(log_likelihood))
     f1_argmax = linspace[max_coord[0][0]]
     f3_argmax = linspace[max_coord[1][0]]
-    form = "{:.3f}"
     print(f"max(log-likelihood): {form.format(np.amax(log_likelihood))}")
     print(f"argmax(log-likelihood): ({form.format(f1_argmax)} : {form.format(f3_argmax)})")
 
