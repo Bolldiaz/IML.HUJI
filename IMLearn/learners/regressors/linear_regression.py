@@ -1,7 +1,6 @@
 from __future__ import annotations
 from typing import NoReturn
 from ...base import BaseEstimator
-import numpy as np
 from numpy.linalg import pinv
 from IMLearn.metrics.loss_functions import *
 

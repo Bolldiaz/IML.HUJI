@@ -1,5 +1,3 @@
-import copy
-
 from IMLearn.utils import split_train_test
 from IMLearn.learners.regressors import LinearRegression
 
@@ -91,7 +89,7 @@ if __name__ == '__main__':
     X, y = load_data("ex2/house_prices.csv")
 
     # Question 2 - Feature evaluation with respect to response
-    # feature_evaluation(X, y)
+    feature_evaluation(X, y)
 
     # Question 3 - Split samples into training- and testing sets.
     trainX, trainY, testX, testY = split_train_test(X, y, TEST_PERCENTAGE)
