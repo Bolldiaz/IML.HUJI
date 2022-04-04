@@ -1,3 +1,5 @@
+import copy
+
 from IMLearn.utils import split_train_test
 from IMLearn.learners.regressors import LinearRegression
 
@@ -48,11 +50,8 @@ def load_data(filename: str):
     df = pd.get_dummies(df, prefix='zipcode_', columns=['zipcode'])
     df = pd.get_dummies(df, prefix='decade_built', columns=['decade_built'])
 
-    df["recently_renovated"] = np.where(df["yr_renovated"] >= np.percentile(df.yr_renovated.unique(), 70), 1, 0)
-
     df = df.drop(["id", "lat", "long", "date", "yr_built", "yr_renovated"], axis=1)
 
-    df.insert(0, 'intercept', 1, True)
     return df.drop("price", axis=1), df.price
 
 
@@ -82,7 +81,7 @@ def feature_evaluation(X: pd.DataFrame, y: pd.Series, output_path: str = ".") ->
         graph = px.scatter(pd.DataFrame({'x': X[feature], 'y': y}), x="x", y="y", trendline="ols",
                          title=f"Correlation Between {feature} Values and Response <br>Pearson Correlation {p}",
                          labels={"x": f"{feature} Values", "y": "Response Values"})
-        graph.write_image("pearson.correlation.%s.png" % feature)
+        graph.write_image("ex2/pearson.correlation.%s.png" % feature)
 
 
 if __name__ == '__main__':
@@ -92,7 +91,7 @@ if __name__ == '__main__':
     X, y = load_data("ex2/house_prices.csv")
 
     # Question 2 - Feature evaluation with respect to response
-    feature_evaluation(X, y)
+    # feature_evaluation(X, y)
 
     # Question 3 - Split samples into training- and testing sets.
     trainX, trainY, testX, testY = split_train_test(X, y, TEST_PERCENTAGE)
@@ -133,4 +132,4 @@ if __name__ == '__main__':
     fig.update_xaxes(ticksuffix="%", title_text="percents of training-set")
     fig.update_yaxes(title_text="loss over test-set")
     fig.update_layout(title_text="average loss as function of training size with error ribbon")
-    fig.write_image('loss.png')
+    fig.write_image('ex2/loss.png')

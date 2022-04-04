@@ -52,10 +52,9 @@ class LinearRegression(BaseEstimator):
         """
 
         if self.include_intercept_:
-            X = np.insert(X, 0, 1, axis=1)
+            X = np.concatenate([X, np.ones(X.shape[0]).reshape(X.shape[0],1)], axis=1)
+
         self.coefs_ = pinv(X) @ y
-
-
 
     def _predict(self, X: np.ndarray) -> np.ndarray:
         """
@@ -72,7 +71,8 @@ class LinearRegression(BaseEstimator):
             Predicted responses of given samples
         """
         if self.include_intercept_:
-            X = np.insert(X, 0, 1, axis=1)
+            X = np.concatenate([X, np.ones(X.shape[0]).reshape(X.shape[0],1)], axis=1)
+
         return X @ self.coefs_
 
     def _loss(self, X: np.ndarray, y: np.ndarray) -> float:
