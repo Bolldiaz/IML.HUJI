@@ -7,9 +7,11 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 import plotly.io as pio
+
 pio.templates.default = "simple_white"
 
 TEST_PERCENTAGE = 0.75
+
 
 def load_data(filename: str):
     """
@@ -26,17 +28,12 @@ def load_data(filename: str):
     """
     df = pd.read_csv(filename).dropna().drop_duplicates()
 
-
-    # Removal of outliers:
-    df = df[df["bedrooms"] < 20]
-    df = df[df["sqft_lot"] < 1250000]
-    df = df[df["sqft_lot15"] < 500000]
-
     # Clean samples don't hold those constraints:
     for feature in ["price", "sqft_living", "sqft_lot", "sqft_above", "yr_built", "sqft_living15", "sqft_lot15"]:
         df = df[df[feature] > 0]
     for feature in ["bathrooms", "floors", "sqft_basement", "yr_renovated"]:
         df = df[df[feature] >= 0]
+
     df = df[df["waterfront"].isin([0, 1]) &
             df["view"].isin(range(5)) &
             df["condition"].isin(range(1, 6)) &
@@ -47,6 +44,7 @@ def load_data(filename: str):
     df["zipcode"] = df["zipcode"].astype(int)
     df = pd.get_dummies(df, prefix='zipcode_', columns=['zipcode'])
     df = pd.get_dummies(df, prefix='decade_built', columns=['decade_built'])
+    df["recently_renovated"] = np.where(df["yr_renovated"] >= np.percentile(df['yr_renovated'], 80), 1, 0)
 
     df = df.drop(["id", "lat", "long", "date", "yr_built", "yr_renovated"], axis=1)
 
@@ -71,15 +69,16 @@ def feature_evaluation(X: pd.DataFrame, y: pd.Series, output_path: str = ".") ->
         Path to folder in which plots are saved
     """
     # remove all categorical columns (and intercept) which cause a redundant cov=0:
-    X = X.loc[:, ~(X.columns.str.contains('^zipcode_') | X.columns.str.contains('^decade_built_'))].drop("intercept", axis=1)
+    X = X.loc[:, ~(X.columns.str.contains('^zipcode_') | X.columns.str.contains('^decade_built_'))]
 
     for feature in X:
-        p = np.cov(X[feature], y)[0, 1] / (np.std(X[feature]) * np.std(y))
-
-        graph = px.scatter(pd.DataFrame({'x': X[feature], 'y': y}), x="x", y="y", trendline="ols",
-                         title=f"Correlation Between {feature} Values and Response <br>Pearson Correlation {p}",
-                         labels={"x": f"{feature} Values", "y": "Response Values"})
-        graph.write_image("ex2/pearson.correlation.%s.png" % feature)
+        sigma1_sigma2 = np.std(X[feature]) * np.std(y)
+        if (sigma1_sigma2 != 0):
+            p = np.cov(X[feature], y)[0, 1] / (np.std(X[feature]) * np.std(y))
+            graph = px.scatter(pd.DataFrame({'x': X[feature], 'y': y}), x="x", y="y", trendline="ols",
+                               title=f"Correlation Between {feature} Values and Response <br>Pearson Correlation {p}",
+                               labels={"x": f"{feature} Values", "y": "Response Values"})
+            graph.write_image("ex2/pearson.correlation.%s.png" % feature)
 
 
 if __name__ == '__main__':
@@ -121,7 +120,7 @@ if __name__ == '__main__':
                                 mode='lines'),
                      go.Scatter(x=x_range,
                                 y=loss_mean + 2 * loss_std,
-                                mode='lines',marker=dict(color='#444'), showlegend=False),
+                                mode='lines', marker=dict(color='#444'), showlegend=False),
                      go.Scatter(x=x_range,
                                 y=loss_mean - 2 * loss_std,
                                 mode='lines', marker=dict(color='#444'), showlegend=False,
