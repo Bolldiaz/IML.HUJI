@@ -4,8 +4,10 @@ from typing import NoReturn
 from ...base import BaseEstimator
 import numpy as np
 
+from ...metrics import misclassification_error
 
-def default_callback(fit: Perceptron, x: np.ndarray, y: int):
+
+def default_callback(fit: Perceptron):
     pass
 
 
@@ -27,16 +29,11 @@ class Perceptron(BaseEstimator):
         Coefficients vector fitted by Perceptron algorithm. To be set in
         `Perceptron.fit` function.
 
-    training_loss_: array of floats
-        holds the loss value of the algorithm during training.
-        training_loss_[i] is the loss value of the i'th training iteration.
-        to be filled in `Perceptron.fit` function.
-
     """
     def __init__(self,
                  include_intercept: bool = True,
                  max_iter: int = 1000,
-                 callback: Callable[[Perceptron, np.ndarray, int], None] = default_callback):
+                 callback: Callable[[Perceptron], None] = default_callback):
         """
         Instantiate a Perceptron classifier
 
@@ -48,6 +45,7 @@ class Perceptron(BaseEstimator):
         max_iter: int, default = 1000
             Maximum number of passes over training data
 
+
         callback: Callable[[Perceptron, np.ndarray, int], None]
             A callable to be called after each update of the model while fitting to given data
             Callable function should receive as input a Perceptron instance, current sample and current response
@@ -57,7 +55,7 @@ class Perceptron(BaseEstimator):
         include_intercept_: bool
             Should fitted model include an intercept or not
 
-        max_iter): int, default = 1000
+        max_iter: int, default = 1000
             Maximum number of passes over training data
 
         callback_: Callable[[Perceptron, np.ndarray, int], None]
@@ -90,7 +88,27 @@ class Perceptron(BaseEstimator):
         -----
         Fits model with or without an intercept depending on value of `self.fit_intercept_`
         """
-        raise NotImplementedError()
+        # initiate:
+        if self.include_intercept_:
+            X = np.hstack((X, np.ones((X.shape[0], 1))))
+        self.coefs_ = np.zeros(X.shape[1])
+
+        self.fitted_ = True
+
+        # mis-classification  routine:
+        for _ in range(self.max_iter_):
+            classifications = y * (X @ self.coefs_)
+
+            # break if no index had misclassified
+            if np.all(classifications > 0):
+                break
+
+            # update w by the first mis-classified index
+            labeled_wrong_index = np.argwhere(classifications <= 0)[0][0]
+            self.coefs_ += y[labeled_wrong_index] * X[labeled_wrong_index]
+
+            # record the training i'th loss
+            self.callback_(self)
 
     def _predict(self, X: np.ndarray) -> np.ndarray:
         """
@@ -106,7 +124,9 @@ class Perceptron(BaseEstimator):
         responses : ndarray of shape (n_samples, )
             Predicted responses of given samples
         """
-        raise NotImplementedError()
+        # classify X @ w to {-1, 1}
+        predict = (np.hstack((X, np.ones((X.shape[0], 1)))) if self.include_intercept_ else X) @ self.coefs_
+        return np.select([np.sign(predict) == 0], [-1], np.sign(predict))
 
     def _loss(self, X: np.ndarray, y: np.ndarray) -> float:
         """
@@ -125,4 +145,8 @@ class Perceptron(BaseEstimator):
         loss : float
             Performance under missclassification loss function
         """
-        raise NotImplementedError()
+        return misclassification_error(y, self.predict(X))
+
+
+
+

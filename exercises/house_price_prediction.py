@@ -74,7 +74,7 @@ def feature_evaluation(X: pd.DataFrame, y: pd.Series, output_path: str = ".") ->
     for feature in X:
         sigma1_sigma2 = np.std(X[feature]) * np.std(y)
         if (sigma1_sigma2 != 0):
-            p = np.cov(X[feature], y)[0, 1] / (np.std(X[feature]) * np.std(y))
+            p = np.cov(X[feature], y)[0, 1] / sigma1_sigma2
             graph = px.scatter(pd.DataFrame({'x': X[feature], 'y': y}), x="x", y="y", trendline="ols",
                                title=f"Correlation Between {feature} Values and Response <br>Pearson Correlation {p}",
                                labels={"x": f"{feature} Values", "y": "Response Values"})

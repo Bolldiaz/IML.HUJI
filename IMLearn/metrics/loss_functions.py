@@ -36,7 +36,10 @@ def misclassification_error(y_true: np.ndarray, y_pred: np.ndarray, normalize: b
     -------
     Misclassification of given predictions
     """
-    raise NotImplementedError()
+    if not y_true.size:
+        raise ValueError("Cannot calculate accuracy with y_true of size 0")
+    normal_factor = 1/y_true.size if normalize else 1
+    return np.sum(y_true != y_pred) * normal_factor
 
 
 def accuracy(y_true: np.ndarray, y_pred: np.ndarray) -> float:
@@ -54,7 +57,9 @@ def accuracy(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     -------
     Accuracy of given predictions
     """
-    raise NotImplementedError()
+    if not y_true.size:
+        raise ValueError("Cannot calculate accuracy with y_true of size 0")
+    return np.sum(y_true == y_pred) / y_true.size
 
 
 def cross_entropy(y_true: np.ndarray, y_pred: np.ndarray) -> float:
