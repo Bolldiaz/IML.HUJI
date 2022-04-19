@@ -3,8 +3,6 @@ from ...base import BaseEstimator
 import numpy as np
 from numpy.linalg import det, inv
 
-from ...metrics import misclassification_error
-
 
 class LDA(BaseEstimator):
     """
@@ -27,7 +25,6 @@ class LDA(BaseEstimator):
     self.pi_: np.ndarray of shape (n_classes)
         The estimated class probabilities. To be set in `GaussianNaiveBayes.fit`
     """
-
     def __init__(self):
         """
         Instantiate an LDA classifier
@@ -81,7 +78,6 @@ class LDA(BaseEstimator):
 
     def likelihood(self, X: np.ndarray) -> np.ndarray:
         """
-
         Calculate the likelihood of a given data over the estimated model
 
         Parameters
@@ -120,4 +116,5 @@ class LDA(BaseEstimator):
         loss : float
             Performance under missclassification loss function
         """
+        from ...metrics import misclassification_error
         return misclassification_error(y, self.predict(X))

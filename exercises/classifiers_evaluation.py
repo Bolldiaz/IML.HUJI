@@ -1,16 +1,11 @@
-from copy import copy
-
-import utils
 from IMLearn.learners.classifiers import Perceptron, LDA, GaussianNaiveBayes
 import numpy as np
 from typing import Tuple
+from utils import *
 import plotly.graph_objects as go
 import plotly.io as pio
 from plotly.subplots import make_subplots
-
-from IMLearn.metrics import loss_functions
-
-pio.templates.default = "simple_white"
+from math import atan2, pi
 
 
 def load_dataset(filename: str) -> Tuple[np.ndarray, np.ndarray]:
@@ -34,7 +29,7 @@ def load_dataset(filename: str) -> Tuple[np.ndarray, np.ndarray]:
     """
 
     data = np.load(f'..//datasets//{filename}')
-    return data[:, :2], data[:, 2]
+    return data[:, :2], data[:, 2].astype(int)
 
 
 def run_perceptron():
@@ -61,6 +56,31 @@ def run_perceptron():
         fig.show()
 
 
+def get_ellipse(mu: np.ndarray, cov: np.ndarray):
+    """
+    Draw an ellipse centered at given location and according to specified covariance matrix
+
+    Parameters
+    ----------
+    mu : ndarray of shape (2,)
+        Center of ellipse
+
+    cov: ndarray of shape (2,2)
+        Covariance of Gaussian
+
+    Returns
+    -------
+        scatter: A plotly trace object of the ellipse
+    """
+    l1, l2 = tuple(np.linalg.eigvalsh(cov)[::-1])
+    theta = atan2(l1 - cov[0, 0], cov[0, 1]) if cov[0, 1] != 0 else (np.pi / 2 if cov[0, 0] < cov[1, 1] else 0)
+    t = np.linspace(0, 2 * pi, 100)
+    xs = (l1 * np.cos(theta) * np.cos(t)) - (l2 * np.sin(theta) * np.sin(t))
+    ys = (l1 * np.sin(theta) * np.cos(t)) + (l2 * np.cos(theta) * np.sin(t))
+
+    return go.Scatter(x=mu[0] + xs, y=mu[1] + ys, mode="lines", marker_color="black")
+
+
 def compare_gaussian_classifiers():
     """
     Fit both Gaussian Naive Bayes and LDA classifiers on both gaussians1 and gaussians2 datasets
@@ -71,12 +91,10 @@ def compare_gaussian_classifiers():
 
         # Fit models and predict over training set
         lda = LDA()
-        lda_acc = loss_functions.accuracy(y, lda.fit(X, y).predict(X))
-
         gnb = GaussianNaiveBayes()
-        gnb_acc = loss_functions.accuracy(y, gnb.fit(X, y).predict(X))
         # Plot a figure with two suplots, showing the Gaussian Naive Bayes predictions on the left and LDA predictions
         # on the right. Plot title should specify dataset used and subplot titles should specify algorithm and accuracy
+        # Create subplots
         from IMLearn.metrics import accuracy
 
         models = [lda, gnb]
@@ -124,4 +142,4 @@ def compare_gaussian_classifiers():
 if __name__ == '__main__':
     np.random.seed(0)
     run_perceptron()
-    # compare_gaussian_classifiers()
+    compare_gaussian_classifiers()
