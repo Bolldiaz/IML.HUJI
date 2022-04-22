@@ -2,6 +2,7 @@ from typing import NoReturn
 from ...base import BaseEstimator
 import numpy as np
 
+
 class GaussianNaiveBayes(BaseEstimator):
     """
     Gaussian Naive-Bayes classifier
@@ -61,9 +62,8 @@ class GaussianNaiveBayes(BaseEstimator):
         responses : ndarray of shape (n_samples, )
             Predicted responses of given samples
         """
-        # argmax(a_k.T @ X + b_k)
         likelihood_matrix = self.likelihood(X)
-        y_pred = np.asarray([self.classes_[np.argmax(pi_k)] for pi_k in likelihood_matrix])
+        y_pred = np.asarray([self.classes_[np.argmax(xi_likelihood)] for xi_likelihood in likelihood_matrix])
         return y_pred
 
     def likelihood(self, X: np.ndarray) -> np.ndarray:
@@ -85,11 +85,14 @@ class GaussianNaiveBayes(BaseEstimator):
             raise ValueError("Estimator must first be fitted before calling `likelihood` function")
 
         # P(y|x_1,...,x_n)
-        f = lambda k, sample: np.sum([np.log(self.pi_[k]) - 0.5 * (
-                    np.log(2 * np.pi * self.vars_[k][j]) + np.square(x_j - self.mu_[k][j]) / self.vars_[k][j])
-                                       for j, x_j in enumerate(sample)])
-
-        return np.asarray([np.asarray([f(k, X_i) for k in range(len(self.classes_))]) for X_i in X])
+        likelihood = []
+        for k in range(self.classes_.size):
+            x_mu = X - self.mu_[k]
+            cov = np.diag(self.vars_[k])
+            exp = self.pi_[k] * np.exp(-0.5 * np.einsum('ij,ji->i', x_mu @ np.linalg.inv(cov), x_mu.T))
+            z = np.sqrt(np.linalg.det(cov) * (2 * np.pi) ** X.shape[1])
+            likelihood.append(exp / z)
+        return np.array(likelihood).T
 
     def _loss(self, X: np.ndarray, y: np.ndarray) -> float:
         """

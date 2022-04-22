@@ -1,9 +1,8 @@
 from IMLearn.learners.classifiers import Perceptron, LDA, GaussianNaiveBayes
-import numpy as np
 from typing import Tuple
+from copy import copy
 from utils import *
 import plotly.graph_objects as go
-import plotly.io as pio
 from plotly.subplots import make_subplots
 from math import atan2, pi
 
@@ -39,7 +38,9 @@ def run_perceptron():
     Create a line plot that shows the perceptron algorithm's training loss values (y-axis)
     as a function of the training iterations (x-axis).
     """
-    for n, f in [("Linearly Separable", "linearly_separable.npy"), ("Linearly Inseparable", "linearly_inseparable.npy")]:
+    for n, f in [("Linearly Separable", "linearly_separable.npy"),
+                 ("Linearly Inseparable", "linearly_inseparable.npy")]:
+
         # Load dataset
         X, y = load_dataset(f)
 
@@ -91,7 +92,11 @@ def compare_gaussian_classifiers():
 
         # Fit models and predict over training set
         lda = LDA()
+        lda.fit(X, y)
+
         gnb = GaussianNaiveBayes()
+        gnb.fit(X, y)
+
         # Plot a figure with two suplots, showing the Gaussian Naive Bayes predictions on the left and LDA predictions
         # on the right. Plot title should specify dataset used and subplot titles should specify algorithm and accuracy
         # Create subplots
@@ -102,41 +107,35 @@ def compare_gaussian_classifiers():
 
         symbols = np.array(["circle", "x", 'triangle-up'])
         fig = make_subplots(rows=2, cols=3, subplot_titles=[rf"$\textbf{{{m}}}$" for m in models_names],
-                            horizontal_spacing=0.01, vertical_spacing=.03)
+                            horizontal_spacing=0.05, vertical_spacing=.1)
         lims = np.array([X.min(axis=0), X.max(axis=0)]).T + np.array([-.4, .4])
 
         for i, m in enumerate(models):
-            acc = loss_functions.accuracy(y, m.fit(X, y)._predict(X))
-            fig.add_traces([utils.decision_surface(m._predict, lims[0], lims[1], showscale=False),
-                            go.Scatter(x=X[:, 0], y=X[:, 1], mode="markers", showlegend=False,
-                                       marker=dict(color=y, symbol=symbols[y.astype(int)],
-                                                   colorscale=['green', 'yellow', 'red'],
-                                                   line=dict(color="black", width=1)),
-                                       text=f"accuracy: {acc}",
-                                       textposition='middle center'),
-                            go.Scatter(x=m.mu_[:, 0], y=m.mu_[:, 1], mode='markers',
-                                       marker=dict(color="black", symbol="x"),
-                                       showlegend=False)
-                            ],
-                           rows=(i // 2) + 1,
-                           cols=(i % 2) + 1)
+            acc = np.round(accuracy(y, m._predict(X)), 3)
+            fig.add_traces(
+                [decision_surface(m._predict, lims[0], lims[1], showscale=False),
+                 go.Scatter(x=X[:, 0], y=X[:, 1], mode="markers", showlegend=False,
+                            marker=dict(color=y, symbol=symbols[y.astype(int)],
+                                        colorscale=['green', 'yellow', 'red'],
+                                        line=dict(color="black", width=1)),
+                            text=f"accuracy: {acc}",
+                            textposition='middle center'),
+                 go.Scatter(x=m.mu_[:, 0], y=m.mu_[:, 1], mode='markers',
+                            marker=dict(color="black", symbol="x"),
+                            showlegend=False),
 
+                 # Add ellipses depicting the covariances of the fitted Gaussians
+                 get_ellipse(m.mu_[0], m.cov_ if i == 0 else np.diag(m.vars_[0])),
+                 get_ellipse(m.mu_[1], m.cov_ if i == 0 else np.diag(m.vars_[1])),
+                 get_ellipse(m.mu_[2], m.cov_ if i == 0 else np.diag(m.vars_[2]))
+                 ],
+                rows=(i // 2) + 1,
+                cols=(i % 2) + 1
+            )
             fig.layout.annotations[i].update(text=f'{models_names[i]} accuracy: {acc}')
 
-        # Add ellipses depicting the covariances of the fitted Gaussians
-        fig.add_trace(get_ellipse(lda.mu_[0], lda.cov_), row=1, col=2, )
-        fig.add_trace(get_ellipse(lda.mu_[1], lda.cov_), row=1, col=2, )
-        fig.add_trace(get_ellipse(lda.mu_[2], lda.cov_), row=1, col=2, )
-        fig.add_trace(get_ellipse(GNB.mu_[0], np.diag(GNB.vars_[0])),
-                      row=1, col=1, )
-        fig.add_trace(get_ellipse(GNB.mu_[1], np.diag(GNB.vars_[1])),
-                      row=1, col=1, )
-        fig.add_trace(get_ellipse(GNB.mu_[2], np.diag(GNB.vars_[2])),
-                      row=1, col=1, )
-
-        fig.update_layout(title=f"analysis of {f} data set ")
+        fig.update_layout(title=f"Analysis of {f} dataset.", title_x=0.2, height=600, width=1500, )
         fig.show()
-
 
 
 if __name__ == '__main__':

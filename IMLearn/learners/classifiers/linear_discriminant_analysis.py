@@ -25,6 +25,7 @@ class LDA(BaseEstimator):
     self.pi_: np.ndarray of shape (n_classes)
         The estimated class probabilities. To be set in `GaussianNaiveBayes.fit`
     """
+
     def __init__(self):
         """
         Instantiate an LDA classifier
@@ -50,12 +51,12 @@ class LDA(BaseEstimator):
 
         self.pi_ = frequency / y.size
 
-        self.mu_ = np.asarray([X[y == k].mean(axis=0) for k in self.classes_]).T
+        self.mu_ = np.asarray([X[y == k].mean(axis=0) for k in self.classes_])
 
-        self.cov_ = np.sum([(X[y == k] - self.mu_[:, i]).T @ (X[y == k] - self.mu_[:, i])
+        self.cov_ = np.sum([(X[y == k] - self.mu_[i]).T @ (X[y == k] - self.mu_[i])
                             for i, k in enumerate(self.classes_)], axis=0) / (X.shape[0] - self.classes_.size)
 
-        self._cov_inv = np.linalg.inv(self.cov_)
+        self._cov_inv = inv(self.cov_)
 
     def _predict(self, X: np.ndarray) -> np.ndarray:
         """
@@ -71,9 +72,8 @@ class LDA(BaseEstimator):
         responses : ndarray of shape (n_samples, )
             Predicted responses of given samples
         """
-
         likelihood_matrix = self.likelihood(X)
-        y_pred = np.asarray([self.classes_[np.argmax(pi_k)] for pi_k in likelihood_matrix])
+        y_pred = np.asarray([self.classes_[np.argmax(xi_likelihood)] for xi_likelihood in likelihood_matrix])
         return y_pred
 
     def likelihood(self, X: np.ndarray) -> np.ndarray:
@@ -94,10 +94,14 @@ class LDA(BaseEstimator):
         if not self.fitted_:
             raise ValueError("Estimator must first be fitted before calling `likelihood` function")
 
-        # a_k.T @ X + b_k
-        f = lambda k, x_i: (self._cov_inv @ self.mu_[:, k]).T @ x_i - 0.5 * self.mu_[:, k] @ self._cov_inv @ self.mu_[:, k]
-
-        return np.asarray([np.asarray([f(k, X_i) for k in range(len(self.classes_))]) for X_i in X])
+        # P(y|x_1,...,x_n)
+        likelihood = []
+        z = np.sqrt(det(self.cov_) * (2 * np.pi) ** X.shape[1])
+        for k in range(self.classes_.size):
+            x_mu = X - self.mu_[k]
+            exp = self.pi_[k] * np.exp(-0.5 * np.einsum('ij,ji->i', x_mu @ self._cov_inv, x_mu.T))
+            likelihood.append(exp / z)
+        return np.array(likelihood).T
 
     def _loss(self, X: np.ndarray, y: np.ndarray) -> float:
         """
