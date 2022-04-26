@@ -46,7 +46,7 @@ class GaussianNaiveBayes(BaseEstimator):
 
         self.mu_ = np.asarray([np.mean(X[y == k], axis=0) for k in self.classes_])
 
-        self.vars_ = np.asarray([np.var(X[y == k], axis=0) for k in self.classes_])
+        self.vars_ = np.asarray([np.var(X[y == k], axis=0, ddof=1) for k in self.classes_])
 
     def _predict(self, X: np.ndarray) -> np.ndarray:
         """

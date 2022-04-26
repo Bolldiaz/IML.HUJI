@@ -74,15 +74,16 @@ class Perceptron(BaseEstimator):
         Fits model with or without an intercept depending on value of `self.fit_intercept_`
         """
         # initiate:
+        X_tag = X
         if self.include_intercept_:
-            X = np.hstack((X, np.ones((X.shape[0], 1))))
-        self.coefs_ = np.zeros(X.shape[1])
+            X_tag = np.hstack((X, np.ones((X.shape[0], 1))))
+        self.coefs_ = np.zeros(X_tag.shape[1])
 
         self.fitted_ = True
 
         # mis-classification  routine:
         for _ in range(self.max_iter_):
-            classifications = y * (X @ self.coefs_)
+            classifications = y * (X_tag @ self.coefs_)
 
             # break if no index had misclassified
             if np.all(classifications > 0):
@@ -90,7 +91,7 @@ class Perceptron(BaseEstimator):
 
             # update w by the first mis-classified index
             labeled_wrong_index = np.argwhere(classifications <= 0)[0][0]
-            self.coefs_ += y[labeled_wrong_index] * X[labeled_wrong_index]
+            self.coefs_ += y[labeled_wrong_index] * X_tag[labeled_wrong_index]
 
             # record the training i'th loss
             self.callback_(self)
@@ -109,9 +110,13 @@ class Perceptron(BaseEstimator):
         responses : ndarray of shape (n_samples, )
             Predicted responses of given samples
         """
+        X_tag = X
+        if self.include_intercept_:
+            X_tag = np.hstack((X, np.ones((X.shape[0], 1))))
+
         # classify X @ w to {-1, 1}
-        predict = (np.hstack((X, np.ones((X.shape[0], 1)))) if self.include_intercept_ else X) @ self.coefs_
-        return np.select([np.sign(predict) == 0], [-1], np.sign(predict))
+        predict = np.sign(X_tag @ self.coefs_)
+        return np.select([predict == 0], [-1], predict)     # switch 0 to -1
 
     def _loss(self, X: np.ndarray, y: np.ndarray) -> float:
         """
