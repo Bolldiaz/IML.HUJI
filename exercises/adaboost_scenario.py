@@ -38,16 +38,51 @@ def generate_data(n: int, noise_ratio: float) -> Tuple[np.ndarray, np.ndarray]:
     return X, y
 
 
-def fit_and_evaluate_adaboost(noise, n_learners=250, train_size=5000, test_size=500):
+def decision_boundary(partial_predict, T, xrange, yrange):
+    xrange, yrange = np.linspace(*xrange, 120), np.linspace(*yrange, 120)
+    xx, yy = np.meshgrid(xrange, yrange)
+    pred = partial_predict(np.c_[xx.ravel(), yy.ravel()], T)
+    return go.Contour(x=xrange, y=yrange, z=pred.reshape(xx.shape), colorscale=custom, reversescale=False,
+                      opacity=.7, connectgaps=True, hoverinfo="skip", showlegend=False, showscale=False)
+
+
+def fit_and_evaluate_adaboost(noise, n_learners=25, train_size=500, test_size=50):
     (train_X, train_y), (test_X, test_y) = generate_data(train_size, noise), generate_data(test_size, noise)
 
     # Question 1: Train- and test errors of AdaBoost in noiseless case
-    raise NotImplementedError()
+    training_error, test_error = [], []
+    adaBoost = AdaBoost(DecisionStump, n_learners).fit(train_X, train_y)
+
+    n_learners_list = np.arange(1, n_learners)
+    for T in n_learners_list:
+        train_loss, test_loss = adaBoost.partial_loss(train_X, train_y, T), adaBoost.partial_loss(test_X, test_y, T)
+        print(f"train: {train_loss}, test: {test_loss}")
+        training_error.append(train_loss)
+        test_error.append(test_loss)
+
+    fig = go.Figure([go.Scatter(x=n_learners_list, y=training_error, mode='lines', name=r'$Training-Error$'),
+                     go.Scatter(x=n_learners_list, y=test_error, mode='lines', name=r'$Test-Error$')])
+    fig.update_xaxes(title_text="learners num")
+    fig.update_yaxes(title_text="error values")
+    fig.update_layout(title_text='Adaboost error')
+    fig.show()
 
     # Question 2: Plotting decision surfaces
     T = [5, 50, 100, 250]
     lims = np.array([np.r_[train_X, test_X].min(axis=0), np.r_[train_X, test_X].max(axis=0)]).T + np.array([-.1, .1])
-    raise NotImplementedError()
+    fig = make_subplots(rows=2, cols=3, subplot_titles=[rf"$\textbf{{{t} iterations}}$" for t in T],
+                        horizontal_spacing=0.01, vertical_spacing=.03)
+
+    for i, T in enumerate(T):  # todo check decision boundary
+        fig.add_traces([decision_boundary(adaBoost.partial_predict, T, lims[0], lims[1]),
+                        go.Scatter(x=train_X[:, 0], y=train_X[:, 1], mode="markers", showlegend=False,
+                                   marker=dict(color=train_y, symbol=np.array(["circle", "x"])[train_y],
+                                               colorscale=[custom[0], custom[-1]], line=dict(color="black", width=1)))],
+                       rows=(i // 3) + 1,
+                       cols=(i % 3) + 1)
+
+    fig.update_layout(title=rf"$\textbf{{Decision boundary by using changed ensemble}}$", margin=dict(t=100)) \
+        .update_xaxes(visible=False).update_yaxes(visible=False)
 
     # Question 3: Decision surface of best performing ensemble
     raise NotImplementedError()
@@ -58,4 +93,5 @@ def fit_and_evaluate_adaboost(noise, n_learners=250, train_size=5000, test_size=
 
 if __name__ == '__main__':
     np.random.seed(0)
-    raise NotImplementedError()
+    # fit_and_evaluate_adaboost(noise=0)
+    fit_and_evaluate_adaboost(noise=0.4)

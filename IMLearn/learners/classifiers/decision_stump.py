@@ -40,11 +40,11 @@ class DecisionStump(BaseEstimator):
         y : ndarray of shape (n_samples, )
             Responses of input data to fit to
         """
-        err_star = np.inf
+        min_err = np.inf
         for sign, j in product([-1, 1], range(X.shape[1])):
-            thr, err = self._find_threshold(X[:j], y, sign)
-            if err < err_star:
-                self.threshold_, err_star, self.j_, self.sign_ = thr, err, j, sign
+            thr, err = self._find_threshold(X[:, j], y, sign)
+            if err < min_err:
+                self.threshold_, min_err, self.j_, self.sign_ = thr, err, j, sign
 
     def _predict(self, X: np.ndarray) -> np.ndarray:
         """
@@ -102,20 +102,17 @@ class DecisionStump(BaseEstimator):
         For every tested threshold, values strictly below threshold are predicted as `-sign` whereas values
         which equal to or above the threshold are predicted as `sign`
         """
+        # sort the values, and rearrange the labels accordingly
         sort_idx = np.argsort(values)
         values, labels = values[sort_idx], labels[sort_idx]
-        losses = [misclassification_error(labels, np.concatenate([np.full(i, -sign), np.full(len(values)-i, sign)]))
-                  for i in range(len(values)+1)]
+
+        #  calculate the loss for each threshold=values[i]
+        losses = [misclassification_error(np.sign(labels), np.concatenate([np.full(i, -sign), np.full(len(values)-i, sign)]))
+                  for i in range(len(values))]
+
+        # return the loss-minimizer threshold and its loss
         min_loss_idx = np.argmin(losses)
         return values[min_loss_idx], losses[min_loss_idx]
-
-    # sort_idx = np.argsort(X[:, j])
-    # X, y, D = X[sort_idx], y[sort_idx], D[sort_idx]
-    # thetas = np.concatenate([[-np.inf], (X[1:, j] + X[:-1, j]) / 2, [np.inf]])
-    # minimal_theta_loss = np.sum(D[y == sign])
-    # losses = np.append(minimal_theta_loss, minimal_theta_loss - np.cumsum(D * (y * sign)))
-    # min_loss_idx = np.argmin(losses)
-    # return losses[min_loss_idx], thetas[min_loss_idx]
 
     def _loss(self, X: np.ndarray, y: np.ndarray) -> float:
         """
