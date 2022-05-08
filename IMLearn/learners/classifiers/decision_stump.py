@@ -3,7 +3,6 @@ from typing import Tuple, NoReturn
 from ...base import BaseEstimator
 import numpy as np
 from itertools import product
-from IMLearn.metrics.loss_functions import misclassification_error
 
 
 class DecisionStump(BaseEstimator):
@@ -107,12 +106,13 @@ class DecisionStump(BaseEstimator):
         values, labels = values[sort_idx], labels[sort_idx]
 
         #  calculate the loss for each threshold=values[i]
-        losses = [misclassification_error(np.sign(labels), np.concatenate([np.full(i, -sign), np.full(len(values)-i, sign)]))
-                  for i in range(len(values))]
+        threshes = np.concatenate([[-np.inf], (values[1:] + values[:-1]) / 2, [np.inf]])
+        minimal_theta_loss = np.sum(np.abs(labels[np.sign(labels) != sign]))
+        losses = np.append(minimal_theta_loss, minimal_theta_loss + np.cumsum(labels * sign))
 
         # return the loss-minimizer threshold and its loss
         min_loss_idx = np.argmin(losses)
-        return values[min_loss_idx], losses[min_loss_idx]
+        return threshes[min_loss_idx], losses[min_loss_idx]
 
     def _loss(self, X: np.ndarray, y: np.ndarray) -> float:
         """
@@ -131,4 +131,5 @@ class DecisionStump(BaseEstimator):
         loss : float
             Performance under missclassification loss function
         """
+        from ...metrics import misclassification_error
         return misclassification_error(y, self.predict(X))

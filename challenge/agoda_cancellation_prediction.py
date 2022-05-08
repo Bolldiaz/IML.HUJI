@@ -50,9 +50,7 @@ def training_preprocessor(full_data: np.ndarray):
     full_data["cancel_warning_days"] = (full_data['checkin_date'] - full_data['cancellation_datetime']).dt.days
     full_data["days_cancelled_after_booking"] = (full_data["cancellation_datetime"] - full_data["booking_datetime"]).dt.days
 
-    # todo find relationship between cancellation policy date, P  and cancel date
     labels = (7 <= full_data["days_cancelled_after_booking"]) & (full_data["days_cancelled_after_booking"] <= 43)
-    # labels = (full_data["cancel_warning_days"] != 0)
     return features, labels
 
 
@@ -63,10 +61,10 @@ def testing_preprocessor(full_data):
                           "original_selling_amount",
                           "is_user_logged_in",
                           "is_first_booking",
-                          "cancellation_policy_code"
+                          "cancellation_policy_code",
                           ]].fillna(0)
-
-    # how much the customer cares about his order
+    #
+    # # how much the customer cares about his order
     features["num_requests"] = (full_data["request_nonesmoke"].fillna(0) +
                                 full_data["request_latecheckin"].fillna(0) +
                                 full_data["request_highfloor"].fillna(0) +
@@ -74,10 +72,6 @@ def testing_preprocessor(full_data):
                                 full_data["request_twinbeds"].fillna(0) +
                                 full_data["request_airport"].fillna(0) +
                                 full_data["request_earlycheckin"].fillna(0))
-
-    # change to numerical
-    for f in ["is_user_logged_in", "is_first_booking"]:
-        features[f] = features[f].astype(int)
 
     full_data['booking_datetime'] = pd.to_datetime(full_data['booking_datetime'])
     full_data['checkin_date'] = pd.to_datetime(full_data['checkin_date'])
@@ -96,7 +90,7 @@ def testing_preprocessor(full_data):
     return features
 
 
-def load_data(filename: str):
+def load_agoda_dataset(filename: str):
     """
     Load Agoda booking cancellation dataset
     Parameters
@@ -120,7 +114,38 @@ def load_data(filename: str):
     return features, labels
 
 
-def evaluate_and_export(estimator: BaseEstimator, X: np.ndarray, filename: str, test_y):
+def load_previous():
+    """
+    Load Agoda booking cancellation dataset
+    Parameters
+    ----------
+    filename: str
+        Path to house prices dataset
+
+    Returns
+    -------
+    Design matrix and response vector in either of the following formats:
+    1) Single dataframe with last column representing the response
+    2) Tuple of pandas.DataFrame and Series
+    3) Tuple of ndarray of shape (n_samples, n_features) and ndarray of shape (n_samples,)
+    """
+    data_set = pd.read_csv(f'testsets//t1.csv')
+    data_set['label'] = pd.DataFrame(pd.read_csv(f'labels//l1.csv').apply(lambda x: pd.Series(x.to_string()[-1], name='label'), axis=1))
+    for i in range(2, 5):
+        ti = pd.read_csv(f'testsets//t{i}.csv')
+        li = pd.DataFrame(pd.read_csv(f'labels//l{i}.csv').apply(lambda x: pd.Series(x.to_string()[-1], name='label'), axis=1))
+        ti['label'] = li
+        data_set = pd.concat([data_set, ti])
+
+    full_data = data_set.drop_duplicates()
+
+    labels = full_data['label'].astype(int)
+    features = testing_preprocessor(full_data.drop('label', axis=1))
+
+    return features, labels
+
+
+def evaluate_and_export(estimator1: BaseEstimator, estimator2: BaseEstimator, X: np.ndarray, filename: str):
     """
     Export to specified file the prediction results of given estimator on given testset.
 
@@ -140,25 +165,62 @@ def evaluate_and_export(estimator: BaseEstimator, X: np.ndarray, filename: str, 
         path to store file at
 
     """
-    y_pred = pd.DataFrame(estimator.predict(X), columns=["predicted_values"])
+    y_pred1 = pd.DataFrame(estimator1.predict(X), columns=["predicted_values"])
+    y_pred2 = pd.DataFrame(estimator2.predict(X), columns=["predicted_values"])
+    y_pred = np.logical_and(y_pred1.astype(int).to_numpy(), y_pred2.astype(int).to_numpy()).astype(int)
+    print(int(np.sum(y_pred1)), int(np.sum(y_pred2)), int(np.sum(y_pred)))
+
     pd.DataFrame(y_pred, columns=["predicted_values"]).to_csv(filename, index=False)
-    # print("Area Under Curve: ", sklearn.metrics.roc_auc_score(test_y, y_pred))
-    # print("Accuracy: ", sklearn.metrics.accuracy_score(test_y, y_pred))
-    # print("Recall: ", sklearn.metrics.recall_score(test_y, y_pred))
-    # print("Precision: ", sklearn.metrics.precision_score(test_y, y_pred))
+
+
+def submission(train_X1, train_y1, train_X2, train_y2, test_csv_filename):
+    # Fit model over data
+    prev_estimator = AgodaCancellationEstimator("complex").fit(train_X1, train_y1)
+    agoda_dataset_estimator = AgodaCancellationEstimator("logistic").fit(train_X2, train_y2)
+
+    # Store model predictions over test set
+    test_set = pd.read_csv(test_csv_filename).drop_duplicates()
+
+    # predict and export to csv
+    evaluate_and_export(prev_estimator, agoda_dataset_estimator, testing_preprocessor(test_set), "342473642_206200552_316457340.csv")
+
+
+def training_playground(train_X1, train_y1, train_X2, train_y2, ):
+    # define train & test sets.
+    test_X = testing_preprocessor(pd.read_csv(f'testsets//t4.csv'))
+    test_y = pd.DataFrame(pd.read_csv(f'labels//l4.csv').apply(lambda x: pd.Series(x.to_string()[-1], name='label'), axis=1)).astype(int)
+
+    # Fit model over data
+    prev_estimator = AgodaCancellationEstimator("complex").fit(train_X1, train_y1)
+    agoda_dataset_estimator = AgodaCancellationEstimator("logistic").fit(train_X2, train_y2)
+
+    # Predict for test_X
+    y_pred1 = pd.DataFrame(prev_estimator.predict(test_X), columns=["predicted_values"])
+    y_pred2 = pd.DataFrame(agoda_dataset_estimator.predict(test_X), columns=["predicted_values"])
+    y_pred = np.logical_and(y_pred1.astype(int).to_numpy(), y_pred2.astype(int).to_numpy())
+    print(int(np.sum(y_pred1)), int(np.sum(y_pred2)), int(np.sum(y_pred)))
+
+    # confusion matrix
+    import matplotlib.pyplot as plt
+    cm = sklearn.metrics.ConfusionMatrixDisplay(sklearn.metrics.confusion_matrix(test_y, y_pred))
+    cm.plot()
+    plt.show()
+
+    # Performances:
+    print("Area Under Curve: ", sklearn.metrics.roc_auc_score(test_y, y_pred))
+    print("Accuracy: ", sklearn.metrics.accuracy_score(test_y, y_pred))
+    print("Recall: ", sklearn.metrics.recall_score(test_y, y_pred))
+    print("Precision: ", sklearn.metrics.precision_score(test_y, y_pred))
+    print("F1 Macro Score: ", sklearn.metrics.f1_score(test_y, y_pred, average='macro'))
 
 
 if __name__ == '__main__':
     np.random.seed(0)
 
     # Load data
-    df, cancellation_labels = load_data("../datasets/agoda_cancellation_train.csv")
+    df1, labels1 = load_previous()
+    df2, labels2 = load_agoda_dataset("../datasets/agoda_cancellation_train.csv")
 
-    # train_X, test_X, train_y, test_y = sklearn.model_selection.train_test_split(df, cancellation_labels, test_size=0.2)
+    # training_playground(df1, labels1, df2, labels2)
 
-    # Fit model over data
-    estimator = AgodaCancellationEstimator().fit(df, cancellation_labels)
-
-    # Store model predictions over test set
-    test_set = pd.read_csv("test_set_week_2.csv").drop_duplicates()
-    evaluate_and_export(estimator, testing_preprocessor(test_set), "342473642_206200552_316457340.csv", 0)
+    submission(df1, labels1, df2, labels2, "testsets/t5.csv")

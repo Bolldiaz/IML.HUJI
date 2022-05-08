@@ -48,7 +48,6 @@ class AdaBoost(BaseEstimator):
         y : ndarray of shape (n_samples, )
             Responses of input data to fit to
         """
-        # rng = np.random.default_rng()
 
         # Set initial samples distributions to be uniform
         m = y.shape[0]
@@ -56,7 +55,6 @@ class AdaBoost(BaseEstimator):
 
         for t in range(self.iterations_):
             # invoke base learner A(D,S) and make prediction
-            # X_tag = rng.choice(X, size=X.shape[0], p=self.D_)
             self.models_.append(self.wl_().fit(X, y*self.D_))
             y_pred = self.models_[t].predict(X)
 
@@ -105,7 +103,7 @@ class AdaBoost(BaseEstimator):
             Performance under missclassification loss function
         """
 
-        return misclassification_error(y, self.predict(X))
+        return self.partial_loss(X, y, len(self.models_))
 
     def partial_predict(self, X: np.ndarray, T: int) -> np.ndarray:
         """
@@ -147,4 +145,5 @@ class AdaBoost(BaseEstimator):
         loss : float
             Performance under missclassification loss function
         """
+        from ..metrics import misclassification_error
         return misclassification_error(y, self.partial_predict(X, T))
