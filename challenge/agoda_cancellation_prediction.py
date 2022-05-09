@@ -132,6 +132,7 @@ def load_previous():
     data_set = pd.read_csv(f'testsets//t1.csv')
     data_set['label'] = pd.DataFrame(pd.read_csv(f'labels//l1.csv').apply(lambda x: pd.Series(x.to_string()[-1], name='label'), axis=1))
     for i in range(2, 5):
+
         ti = pd.read_csv(f'testsets//t{i}.csv')
         li = pd.DataFrame(pd.read_csv(f'labels//l{i}.csv').apply(lambda x: pd.Series(x.to_string()[-1], name='label'), axis=1))
         ti['label'] = li
