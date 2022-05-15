@@ -40,14 +40,6 @@ def generate_data(n: int, noise_ratio: float) -> Tuple[np.ndarray, np.ndarray]:
     return X, y
 
 
-def decision_boundary(partial_predict, T, xrange, yrange):
-    xrange, yrange = np.linspace(*xrange, 120), np.linspace(*yrange, 120)
-    xx, yy = np.meshgrid(xrange, yrange)
-    pred = partial_predict(np.c_[xx.ravel(), yy.ravel()], T)
-    return go.Contour(x=xrange, y=yrange, z=pred.reshape(xx.shape), colorscale=custom, reversescale=False,
-                      opacity=.7, connectgaps=True, hoverinfo="skip", showlegend=False, showscale=False)
-
-
 def fit_and_evaluate_adaboost(noise, n_learners=250, train_size=5000, test_size=500):
     (train_X, train_y), (test_X, test_y) = generate_data(train_size, noise), generate_data(test_size, noise)
 
@@ -66,7 +58,7 @@ def fit_and_evaluate_adaboost(noise, n_learners=250, train_size=5000, test_size=
     fig.update_xaxes(title_text="learners num")
     fig.update_yaxes(title_text="error values")
     fig.update_layout(title_text=rf"$\textbf{{Adaboost error}}$")
-    fig.write_image(f"ex4/AdaBoost_Train&TestErrors_Noise{noise}.png")
+    # fig.write_image(f"ex4/AdaBoost_Train&TestErrors_Noise{noise}.png")
     fig.show()
 
     # Question 2: Plotting decision surfaces
@@ -106,8 +98,8 @@ def fit_and_evaluate_adaboost(noise, n_learners=250, train_size=5000, test_size=
     fig.update_xaxes(matches='x', range=[-1, 1], constrain="domain")
     fig.update_yaxes(matches='y', range=[-1, 1], constrain="domain", scaleanchor="x", scaleratio=1)
 
-    fig.write_image(f"ex4/AdaBoost_DecisionBoundaries_Noise{noise}.png")
-    # fig.show()
+    # fig.write_image(f"ex4/AdaBoost_DecisionBoundaries_Noise{noise}.png")
+    fig.show()
 
     # Question 3: Decision surface of best performing ensemble
     t_min = np.argmin(test_error) + 1
@@ -117,8 +109,8 @@ def fit_and_evaluate_adaboost(noise, n_learners=250, train_size=5000, test_size=
     fig.update_yaxes(matches='y', range=[-1, 1], constrain="domain", scaleanchor="x", scaleratio=1)
     fig.update_layout(title_text=f"Ensemble achieved the lowest test error\nsize={t_min}, accuracy={acc}")
 
-    fig.write_image(f"ex4/AdaBoost_LowestBoundary_Noise{noise}.png")
-    # fig.show()
+    # fig.write_image(f"ex4/AdaBoost_LowestBoundary_Noise{noise}.png")
+    fig.show()
 
     # Question 4: Decision surface with weighted samples
     m = go.Scatter(x=train_X[:, 0],
@@ -139,8 +131,8 @@ def fit_and_evaluate_adaboost(noise, n_learners=250, train_size=5000, test_size=
                                  height=600,
                                  title=rf"$\textbf{{Adaboost train set with sample sized by weights, noise={noise}}}$"))
 
-    fig.write_image(f"ex4/AdaBoost_Weighted_Samples_Noise{noise}.png")
-    # fig.show()
+    # fig.write_image(f"ex4/AdaBoost_Weighted_Samples_Noise{noise}.png")
+    fig.show()
 
 
 if __name__ == '__main__':
