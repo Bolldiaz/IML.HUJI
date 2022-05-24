@@ -49,7 +49,7 @@ def training_preprocessor(full_data: np.ndarray):
     full_data["days_cancelled_after_booking"] = (full_data["cancellation_datetime"] - full_data["booking_datetime"]).dt.days
 
     labels = (7 <= full_data["days_cancelled_after_booking"]) & (full_data["days_cancelled_after_booking"] <= 43)
-    return features, labels
+    return features, np.asarray(labels).astype(int)
 
 
 def testing_preprocessor(full_data):
@@ -61,8 +61,8 @@ def testing_preprocessor(full_data):
                           "is_first_booking",
                           "cancellation_policy_code",
                           ]].fillna(0)
-    #
-    # # how much the customer cares about his order
+
+    # how much the customer cares about his order, sums all it's requests
     features["num_requests"] = (full_data["request_nonesmoke"].fillna(0) +
                                 full_data["request_latecheckin"].fillna(0) +
                                 full_data["request_highfloor"].fillna(0) +
@@ -80,10 +80,10 @@ def testing_preprocessor(full_data):
     features["num_nights"] = (full_data['checkout_date'] - full_data['checkin_date']).dt.days - 1
 
     # deal with cancellation policy code
-    features['B'] = features.apply(lambda x: cancel_parser(x['cancellation_policy_code'], x['num_nights']), axis=1)
-    features[['cd1', 'cp1', 'cd2', 'cp2', 'ns']] = pd.DataFrame(features['B'].tolist(), index=features.index)
+    features['parsed_cancellation'] = features.apply(lambda x: cancel_parser(x['cancellation_policy_code'], x['num_nights']), axis=1)
+    features[['cd1', 'cp1', 'cd2', 'cp2', 'ns']] = pd.DataFrame(features['parsed_cancellation'].tolist(), index=features.index)
     del features["cancellation_policy_code"]
-    del features['B']
+    del features['parsed_cancellation']
 
     return features
 
@@ -160,7 +160,7 @@ def evaluate_and_export(train_X1, train_y1, train_X2, train_y2, test_csv_filenam
     y_pred1 = pd.DataFrame(prev_estimator.predict(X), columns=["predicted_values"])
     y_pred2 = pd.DataFrame(agoda_dataset_estimator.predict(X), columns=["predicted_values"])
     y_pred = np.logical_and(y_pred1.astype(int).to_numpy(), y_pred2.astype(int).to_numpy()).astype(int)
-    print(int(np.sum(y_pred1)), int(np.sum(y_pred2)), int(np.sum(y_pred)))
+    print(f"prev weeks: {int(np.sum(y_pred1))}, dataset: {int(np.sum(y_pred2))}, prediction: {int(np.sum(y_pred))}")
 
     # export the current-week predicted labels
     pd.DataFrame(y_pred, columns=["predicted_values"]).to_csv("342473642_206200552_316457340.csv", index=False)
@@ -177,7 +177,7 @@ def load_previous():
     """
     data_set = pd.read_csv(f'testsets//t1.csv')
     data_set['label'] = pd.DataFrame(pd.read_csv(f'labels//l1.csv').apply(lambda x: pd.Series(x.to_string()[-1], name='label'), axis=1))
-    for i in range(2, 5):
+    for i in range(2, 6):
         ti = pd.read_csv(f'testsets//t{i}.csv')
         li = pd.DataFrame(pd.read_csv(f'labels//l{i}.csv').apply(lambda x: pd.Series(x.to_string()[-1], name='label'), axis=1))
         ti['label'] = li
@@ -217,4 +217,4 @@ if __name__ == '__main__':
 
     # training_playground(df1, labels1, df2, labels2)
 
-    # evaluate_and_export(df1, labels1, df2, labels2, "testsets/t5.csv")
+    evaluate_and_export(df1, labels1, df2, labels2, "testsets/t6.csv")

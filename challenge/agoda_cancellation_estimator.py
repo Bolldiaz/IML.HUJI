@@ -5,14 +5,17 @@ import sklearn.linear_model
 
 from IMLearn.base import BaseEstimator
 import numpy as np
-from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import AdaBoostClassifier, AdaBoostRegressor
+from sklearn.linear_model import LogisticRegression, Ridge
+from sklearn.ensemble import AdaBoostClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neighbors import KNeighborsClassifier as KNN
 from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis as QDA, LinearDiscriminantAnalysis as LDA
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import BaggingClassifier
 from sklearn.naive_bayes import MultinomialNB, BernoulliNB, GaussianNB, CategoricalNB
+from catboost import CatBoostClassifier, Pool
+
+
 
 class AgodaCancellationEstimator(BaseEstimator):
     """
@@ -37,17 +40,15 @@ class AgodaCancellationEstimator(BaseEstimator):
             self.model = LogisticRegression(max_iter=20000)
 
         if self.model_name == "complex":
-            # self.model = AdaBoostClassifier(n_estimators=10,
-            #                                learning_rate=0.2,
-            #                                base_estimator=BaggingClassifier(base_estimator=MultinomialNB(),
-            #                                                                 max_samples=0.2),
-            #                                )
+            self.model = AdaBoostClassifier(n_estimators=7,
+                                            learning_rate=0.385,
+                                            base_estimator=MultinomialNB())
+        if self.model_name == "cat":
+            self.model = CatBoostClassifier(iterations=2,
+                                            depth=2,
+                                            learning_rate=1)
 
-            self.model = AdaBoostClassifier(n_estimators=10,
-                                            learning_rate=0.37,
-                                            base_estimator=GaussianNB())
 
-            # self.model = RandomForestClassifier()
 
     def _fit(self, X: np.ndarray, y: np.ndarray) -> NoReturn:
         """
@@ -65,7 +66,10 @@ class AgodaCancellationEstimator(BaseEstimator):
         -----
 
         """
-        self.model.fit(X, y)
+        if self.model_name == "cat":
+            self.model.fit(X, y, sample_weight=(y+1)/2)
+        else:
+            self.model.fit(X, y)
 
     def _predict(self, X: np.ndarray) -> np.ndarray:
         """
@@ -90,7 +94,7 @@ class AgodaCancellationEstimator(BaseEstimator):
 
             return vfunc(self.model.predict_proba(X).T[1])
 
-        if self.model_name == "complex":
+        else:
             return self.model.predict(X)
 
     def _loss(self, X: np.ndarray, y: np.ndarray) -> float:
