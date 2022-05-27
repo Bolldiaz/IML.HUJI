@@ -1,19 +1,10 @@
 from __future__ import annotations
 from typing import NoReturn
 
-import sklearn.linear_model
-
 from IMLearn.base import BaseEstimator
 import numpy as np
-from sklearn.linear_model import LogisticRegression, Ridge
-from sklearn.ensemble import AdaBoostClassifier
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.neighbors import KNeighborsClassifier as KNN
-from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis as QDA, LinearDiscriminantAnalysis as LDA
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemble import BaggingClassifier
-from sklearn.naive_bayes import MultinomialNB, BernoulliNB, GaussianNB, CategoricalNB
 from catboost import CatBoostClassifier, Pool
+from xgboost import XGBClassifier
 
 
 
@@ -22,7 +13,7 @@ class AgodaCancellationEstimator(BaseEstimator):
     An estimator for solving the Agoda Cancellation challenge
     """
 
-    def __init__(self, model_name: str) -> AgodaCancellationEstimator:
+    def __init__(self, weight_true, weight_false) -> AgodaCancellationEstimator:
         """
         Instantiate an estimator for solving the Agoda Cancellation challenge
 
@@ -35,20 +26,14 @@ class AgodaCancellationEstimator(BaseEstimator):
 
         """
         super().__init__()
-        self.model_name = model_name
-        if self.model_name == "logistic":
-            self.model = LogisticRegression(max_iter=20000)
+        self.weight_true = weight_true
+        self.weight_false = weight_false
 
-        if self.model_name == "complex":
-            self.model = AdaBoostClassifier(n_estimators=7,
-                                            learning_rate=0.385,
-                                            base_estimator=MultinomialNB())
-        if self.model_name == "cat":
-            self.model = CatBoostClassifier(iterations=2,
-                                            depth=2,
-                                            learning_rate=1)
+        self.model = XGBClassifier(use_label_encoder=False)
 
-
+        # self.model = CatBoostClassifier(iterations=18,
+        #                                 depth=4,
+        #                                 learning_rate=0.75)
 
     def _fit(self, X: np.ndarray, y: np.ndarray) -> NoReturn:
         """
@@ -66,10 +51,7 @@ class AgodaCancellationEstimator(BaseEstimator):
         -----
 
         """
-        if self.model_name == "cat":
-            self.model.fit(X, y, sample_weight=(y+1)/2)
-        else:
-            self.model.fit(X, y)
+        self.model.fit(X, y, sample_weight=y*self.weight_true + self.weight_false)
 
     def _predict(self, X: np.ndarray) -> np.ndarray:
         """
@@ -85,17 +67,7 @@ class AgodaCancellationEstimator(BaseEstimator):
         responses : ndarray of shape (n_samples, )
             Predicted responses of given samples
         """
-        if self.model_name == "logistic":
-            THRESH = 0.33
-
-            threshold_taker = lambda x: 1 if x > THRESH else 0
-
-            vfunc = np.vectorize(threshold_taker)
-
-            return vfunc(self.model.predict_proba(X).T[1])
-
-        else:
-            return self.model.predict(X)
+        return self.model.predict(X)
 
     def _loss(self, X: np.ndarray, y: np.ndarray) -> float:
         """
