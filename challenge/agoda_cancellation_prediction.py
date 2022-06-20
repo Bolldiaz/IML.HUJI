@@ -45,35 +45,35 @@ def cancel_parser(policy: str, nights_num):
         return days1, amount1, days2, amount2, noshow
 
 
-def agoda_preprocessor(full_data: np.ndarray):
-    # fill cancellation datetime which doesn't exist as 0
-    full_data.loc[full_data["cancellation_datetime"].isnull(), "cancellation_datetime"] = full_data["checkin_date"]
-    full_data['cancellation_datetime'] = pd.to_datetime(full_data["cancellation_datetime"])
-
-    features = data_preprocessor(full_data)
-    full_data["cancel_warning_days"] = (full_data['checkin_date'] - full_data['cancellation_datetime']).dt.days
-    full_data["days_cancelled_after_booking"] = (full_data["cancellation_datetime"] - full_data["booking_datetime"]).dt.days
-
-    labels = (7 <= full_data["days_cancelled_after_booking"]) & (full_data["days_cancelled_after_booking"] <= 43)
-    return features, np.asarray(labels).astype(int)
-
-
-def load_agoda_dataset():
-    """
-    Load Agoda booking cancellation dataset
-
-    Returns
-    -------
-    Design matrix and response vector in the following format:
-    - Tuple of ndarray of shape (n_samples, n_features) and ndarray of shape (n_samples,)
-    """
-
-    # clean data for unrealistic shit
-    full_data = pd.read_csv("../datasets/agoda_cancellation_train.csv").drop_duplicates()
-
-    features, labels = agoda_preprocessor(full_data)
-
-    return features, labels
+# def agoda_preprocessor(full_data: np.ndarray):
+#     # fill cancellation datetime which doesn't exist as 0
+#     full_data.loc[full_data["cancellation_datetime"].isnull(), "cancellation_datetime"] = full_data["checkin_date"]
+#     full_data['cancellation_datetime'] = pd.to_datetime(full_data["cancellation_datetime"])
+#
+#     features = data_preprocessor(full_data)
+#     full_data["cancel_warning_days"] = (full_data['checkin_date'] - full_data['cancellation_datetime']).dt.days
+#     full_data["days_cancelled_after_booking"] = (full_data["cancellation_datetime"] - full_data["booking_datetime"]).dt.days
+#
+#     labels = (7 <= full_data["days_cancelled_after_booking"]) & (full_data["days_cancelled_after_booking"] <= 43)
+#     return features, np.asarray(labels).astype(int)
+#
+#
+# def load_agoda_dataset():
+#     """
+#     Load Agoda booking cancellation dataset
+#
+#     Returns
+#     -------
+#     Design matrix and response vector in the following format:
+#     - Tuple of ndarray of shape (n_samples, n_features) and ndarray of shape (n_samples,)
+#     """
+#
+#     # clean data for unrealistic shit
+#     full_data = pd.read_csv("../datasets/agoda_cancellation_train.csv").drop_duplicates()
+#
+#     features, labels = agoda_preprocessor(full_data)
+#
+#     return features, labels
 
 
 def data_preprocessor(full_data):
@@ -97,8 +97,7 @@ def data_preprocessor(full_data):
 
     features["charge_option"] = full_data["charge_option"].apply(lambda x: 1 if x == "Pay Later" else 0)
 
-    # accom = {"":}
-    # features["accommadation_type_name"] = full_data["accommadation_type_name"].apply(lambda x: accom[x])
+    # features = pd.get_dummies(features, prefix='accommadation_type_name', columns=['accommadation_type_name'])
 
     full_data['booking_datetime'] = pd.to_datetime(full_data['booking_datetime'])
     full_data['checkin_date'] = pd.to_datetime(full_data['checkin_date'])
@@ -169,19 +168,21 @@ def training_playground(X, y):
 
     """
 
-    # f1_scores = []
-    # for true, false in itertools.product(list(np.arange(0.6, 1, 0.05)), list(np.arange(0.03, 0.1, 0.01))):
-    #     print(true, false)
-    #     estimator = AgodaCancellationEstimator(true, false)
-    #     f1_scores.append(cross_validate(estimator, X, y, cv=6))
-    #
-    # print(f1_scores)
+    f1_scores = []
+    range_of_weights = list(itertools.product(list(np.arange(0.6, 1, 0.05)), list(np.arange(0.03, 0.1, 0.01))))
+    for true, false in range_of_weights:
+        estimator = AgodaCancellationEstimator(true, false)
+        f1_scores.append(cross_validate(estimator, X, y, cv=6))
+
+    print(np.max(f1_scores))
+
+    true_weight, false_weight = range_of_weights[np.argmax(f1_scores)]
 
     # define train & test sets.
     train_X, test_X, train_y, test_y = train_test_split(X.to_numpy(), y.to_numpy(), test_size=1/6)
 
     # Fit model over data
-    prev_estimator = AgodaCancellationEstimator(0.6, 0.07).fit(train_X, train_y)
+    prev_estimator = AgodaCancellationEstimator(true_weight, false_weight).fit(train_X, train_y)
 
     # Predict for test_X
     y_pred = pd.DataFrame(prev_estimator.predict(test_X), columns=["predicted_values"])
@@ -199,7 +200,7 @@ def training_playground(X, y):
     print("F1 Macro Score: ", metrics.f1_score(test_y, y_pred, average='macro'))
 
 
-def evaluate_and_export(X, y, test_csv_filename):
+def evaluate_and_export(X, y, current_week):
     """
     Export to specified file the prediction results of given estimator on given testset.
 
@@ -220,15 +221,17 @@ def evaluate_and_export(X, y, test_csv_filename):
         estimator = AgodaCancellationEstimator(true, false)
         f1_scores.append(cross_validate(estimator, X, y, cv=6))
 
-    print(np.max(f1_scores))
+    print(f'max f1-macro: {np.max(f1_scores)}')
 
     true_weight, false_weight = range_of_weights[np.argmax(f1_scores)]
+
+    print(f'true_weight: {true_weight}, false_weight: {false_weight}')
 
     # Fit model over data
     prev_estimator = AgodaCancellationEstimator(true_weight, false_weight).fit(X, y)
 
     # Store model predictions over test set
-    test_set = pd.read_csv(test_csv_filename).drop_duplicates()
+    test_set = pd.read_csv(f"testsets/t{current_week}.csv").drop_duplicates()
 
     # predict over current-week test-set
     X = data_preprocessor(test_set)
@@ -238,7 +241,41 @@ def evaluate_and_export(X, y, test_csv_filename):
     pd.DataFrame(y_pred, columns=["predicted_values"]).to_csv("342473642_206200552_316457340.csv", index=False)
 
 
-def load_previous():
+def last_week_performances(X, y, last_week_num: int):
+    f1_scores = []
+    range_of_weights = list(itertools.product(list(np.arange(0.6, 1, 0.05)), list(np.arange(0.03, 0.1, 0.01))))
+    for true, false in range_of_weights:
+        estimator = AgodaCancellationEstimator(true, false)
+        f1_scores.append(cross_validate(estimator, X, y, cv=6))
+
+    print(np.max(f1_scores))
+
+    true_weight, false_weight = range_of_weights[np.argmax(f1_scores)]
+
+    # Fit model over data
+    prev_estimator = AgodaCancellationEstimator(true_weight, false_weight).fit(X, y)
+
+    # Store model predictions over test set
+    y_true = pd.read_csv(f'labels//l{last_week_num}.csv')["cancel"]
+    test_set = data_preprocessor(pd.read_csv(f'testsets//t{last_week_num}.csv').drop_duplicates())
+
+    # predict over current-week test-set
+    y_pred = pd.DataFrame(prev_estimator.predict(test_set), columns=["predicted_values"])
+
+    # confusion matrix
+    cm = metrics.ConfusionMatrixDisplay(metrics.confusion_matrix(y_true, y_pred))
+    cm.plot()
+    plt.show()
+
+    # Performances:
+    print("Area Under Curve: ", metrics.roc_auc_score(y_true, y_pred))
+    print("Accuracy: ", metrics.accuracy_score(y_true, y_pred))
+    print("Recall: ", metrics.recall_score(y_true, y_pred))
+    print("Precision: ", metrics.precision_score(y_true, y_pred))
+    print("F1 Macro Score: ", metrics.f1_score(y_true, y_pred, average='macro'))
+
+
+def load_previous(current_week: int):
     """
     Load Previous-weeks test-sets and labels
 
@@ -249,7 +286,7 @@ def load_previous():
     """
     data_set = pd.read_csv(f'testsets//t1.csv')
     data_set['label'] = pd.read_csv(f'labels//l1.csv')["cancel"]
-    for i in range(2, 7):
+    for i in range(2, current_week):
         ti = pd.read_csv(f'testsets//t{i}.csv')
         li = pd.read_csv(f'labels//l{i}.csv')["cancel"]
         ti['label'] = li
@@ -268,8 +305,10 @@ if __name__ == '__main__':
     np.random.seed(0)
 
     # Load data
-    df, labels = load_previous()
+    df, labels = load_previous(current_week=9)
 
     # training_playground(df, labels)
 
-    evaluate_and_export(df, labels, "testsets/t7.csv")
+    evaluate_and_export(df, labels, current_week=9)
+    
+    # last_week_performances(df, labels, last_week_num=8)
