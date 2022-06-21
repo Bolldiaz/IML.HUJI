@@ -88,7 +88,18 @@ class LogisticRegression(BaseEstimator):
         Fits model using specified `self.optimizer_` passed when instantiating class and includes an intercept
         if specified by `self.include_intercept_
         """
-        raise NotImplementedError()
+        X_ = np.insert(X, 0, 1, axis=1) if self.include_intercept_ else X
+
+        init = np.random.normal(0, 1, size=X_.shape[1]) / np.sqrt(X_.shape[1])
+
+        if self.penalty_ == "l1":
+            module = RegularizedModule(LogisticModule(init), L1(init), self.lam_, init)
+        elif self.penalty_ == "l2":
+            module = RegularizedModule(LogisticModule(init), L2(init), self.lam_, init)
+        else:
+            module = LogisticModule(weights=init)
+
+        self.coefs_ = self.solver_.fit(module, X_, y)
 
     def _predict(self, X: np.ndarray) -> np.ndarray:
         """
@@ -104,7 +115,7 @@ class LogisticRegression(BaseEstimator):
         responses : ndarray of shape (n_samples, )
             Predicted responses of given samples
         """
-        raise NotImplementedError()
+        return (self.alpha_ <= self.predict_proba(X)).astype(int)
 
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
         """
@@ -120,7 +131,9 @@ class LogisticRegression(BaseEstimator):
         probabilities: ndarray of shape (n_samples,)
             Probability of each sample being classified as `1` according to the fitted model
         """
-        raise NotImplementedError()
+        X_ = np.insert(X, 0, 1, axis=1) if self.include_intercept_ else X
+        exp_Xw = np.exp(X_ @ self.coefs_)
+        return exp_Xw / (1 + exp_Xw)    # sigmoid
 
     def _loss(self, X: np.ndarray, y: np.ndarray) -> float:
         """
@@ -139,4 +152,5 @@ class LogisticRegression(BaseEstimator):
         loss : float
             Performance under misclassification error
         """
-        raise NotImplementedError()
+        from IMLearn.metrics.loss_functions import misclassification_error
+        return misclassification_error(y, self.predict(X))

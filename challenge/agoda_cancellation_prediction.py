@@ -157,7 +157,7 @@ def cross_validate(estimator, X: np.ndarray, y: np.ndarray, cv):
     return np.array(validation_scores).mean()
 
 
-def training_playground(X, y):
+def training_playground(X, y, current_week):
     """
     Evaluate current model performances over previous weeks datasets.
 
@@ -167,19 +167,19 @@ def training_playground(X, y):
     y: the previous weeks unite labels
 
     """
+    n = (current_week - 1) * 700
+    # define train & test sets.
+    train_X, train_y, test_X, test_y = X[:n, :], y[:n, :], X[n:, :], y[n:, :]
 
     f1_scores = []
     range_of_weights = list(itertools.product(list(np.arange(0.6, 1, 0.05)), list(np.arange(0.03, 0.1, 0.01))))
     for true, false in range_of_weights:
         estimator = AgodaCancellationEstimator(true, false)
-        f1_scores.append(cross_validate(estimator, X, y, cv=6))
+        f1_scores.append(cross_validate(estimator, train_X, train_y, cv=current_week-1))
 
     print(np.max(f1_scores))
 
     true_weight, false_weight = range_of_weights[np.argmax(f1_scores)]
-
-    # define train & test sets.
-    train_X, test_X, train_y, test_y = train_test_split(X.to_numpy(), y.to_numpy(), test_size=1/6)
 
     # Fit model over data
     prev_estimator = AgodaCancellationEstimator(true_weight, false_weight).fit(train_X, train_y)
@@ -219,7 +219,7 @@ def evaluate_and_export(X, y, current_week):
     range_of_weights = list(itertools.product(list(np.arange(0.6, 1, 0.05)), list(np.arange(0.03, 0.1, 0.01))))
     for true, false in range_of_weights:
         estimator = AgodaCancellationEstimator(true, false)
-        f1_scores.append(cross_validate(estimator, X, y, cv=6))
+        f1_scores.append(cross_validate(estimator, X, y, cv=current_week-1))
 
     print(f'max f1-macro: {np.max(f1_scores)}')
 
@@ -241,26 +241,12 @@ def evaluate_and_export(X, y, current_week):
     pd.DataFrame(y_pred, columns=["predicted_values"]).to_csv("342473642_206200552_316457340.csv", index=False)
 
 
-def last_week_performances(X, y, last_week_num: int):
-    f1_scores = []
-    range_of_weights = list(itertools.product(list(np.arange(0.6, 1, 0.05)), list(np.arange(0.03, 0.1, 0.01))))
-    for true, false in range_of_weights:
-        estimator = AgodaCancellationEstimator(true, false)
-        f1_scores.append(cross_validate(estimator, X, y, cv=6))
-
-    print(np.max(f1_scores))
-
-    true_weight, false_weight = range_of_weights[np.argmax(f1_scores)]
-
-    # Fit model over data
-    prev_estimator = AgodaCancellationEstimator(true_weight, false_weight).fit(X, y)
-
-    # Store model predictions over test set
+def last_week_performances(last_week_num: int):
+    # true labels from last week
     y_true = pd.read_csv(f'labels//l{last_week_num}.csv')["cancel"]
-    test_set = data_preprocessor(pd.read_csv(f'testsets//t{last_week_num}.csv').drop_duplicates())
 
-    # predict over current-week test-set
-    y_pred = pd.DataFrame(prev_estimator.predict(test_set), columns=["predicted_values"])
+    # predicted labels from last week
+    y_pred = pd.read_csv(f'342473642_206200552_316457340.csv')["predicted_values"]
 
     # confusion matrix
     cm = metrics.ConfusionMatrixDisplay(metrics.confusion_matrix(y_true, y_pred))
@@ -270,8 +256,6 @@ def last_week_performances(X, y, last_week_num: int):
     # Performances:
     print("Area Under Curve: ", metrics.roc_auc_score(y_true, y_pred))
     print("Accuracy: ", metrics.accuracy_score(y_true, y_pred))
-    print("Recall: ", metrics.recall_score(y_true, y_pred))
-    print("Precision: ", metrics.precision_score(y_true, y_pred))
     print("F1 Macro Score: ", metrics.f1_score(y_true, y_pred, average='macro'))
 
 
@@ -296,19 +280,18 @@ def load_previous(current_week: int):
     labels = full_data['label'].astype(int)
     features = data_preprocessor(full_data.drop('label', axis=1))
 
-    # canceled = full_data.drop('label', axis=1)[labels == 1]
-
     return features, labels
 
 
 if __name__ == '__main__':
     np.random.seed(0)
 
-    # Load data
-    df, labels = load_previous(current_week=9)
+    week_num = 10
 
+    # Load data
+    df, labels = load_previous(current_week=week_num)
     # training_playground(df, labels)
 
-    evaluate_and_export(df, labels, current_week=9)
+    evaluate_and_export(df, labels, current_week=week_num)
     
-    # last_week_performances(df, labels, last_week_num=8)
+    # last_week_performances(last_week_num=week_num)

@@ -31,9 +31,6 @@ class AgodaCancellationEstimator(BaseEstimator):
 
         self.model = XGBClassifier(use_label_encoder=False)
 
-        # self.model = CatBoostClassifier(iterations=18,
-        #                                 depth=4,
-        #                                 learning_rate=0.75)
 
     def _fit(self, X: np.ndarray, y: np.ndarray) -> NoReturn:
         """
