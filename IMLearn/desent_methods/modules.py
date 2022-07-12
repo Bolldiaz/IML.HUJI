@@ -194,6 +194,7 @@ class RegularizedModule(BaseModule):
 
         if weights is not None:
             self.weights_ = weights
+            self.weights = weights
 
     def compute_output(self, **kwargs) -> np.ndarray:
         """
