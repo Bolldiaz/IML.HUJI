@@ -31,7 +31,6 @@ class AgodaCancellationEstimator(BaseEstimator):
 
         self.model = XGBClassifier(use_label_encoder=False)
 
-
     def _fit(self, X: np.ndarray, y: np.ndarray) -> NoReturn:
         """
         Fit an estimator for given samples

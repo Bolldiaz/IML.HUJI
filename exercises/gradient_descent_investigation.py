@@ -113,7 +113,7 @@ def compare_exponential_decay_rates(init: np.ndarray = np.array([np.sqrt(2), np.
     for g in gammas:
         callback, weights, vals = get_gd_state_recorder_callback()
         GradientDescent(learning_rate=ExponentialLR(eta, g), callback=callback).fit(L1(init), X=None, y=None)
-        plots.append(go.Scatter(y=vals, mode='markers', name=f"gamma={g}"))
+        plots.append(go.Scatter(y=vals, mode='markers+lines', name=f"gamma={g}"))
 
     # Plot algorithm's convergence for the different values of gamma
     fig = go.Figure(plots)
