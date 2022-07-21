@@ -18,7 +18,7 @@ class FullyConnectedLayer(BaseModule):
     activation_: BaseModule
         Activation function to be performed after integration of inputs and weights
 
-    weights: ndarray of shape (input_dim_, outout_din_)
+    weights: ndarray of shape (input_dim_, outout_dim_)
         Parameters of function with respect to which the function is optimized.
 
     include_intercept: bool
@@ -48,7 +48,11 @@ class FullyConnectedLayer(BaseModule):
         Weights are randomly initialized following N(0, 1/input_dim)
         """
         super().__init__()
-        raise NotImplementedError()
+        self.input_dim_ = input_dim + (1 if include_intercept else 0)
+        self.output_dim_ = output_dim
+        self.activation_ = activation
+        self.include_intercept_ = include_intercept
+        self.weights = np.random.normal(loc=0.0, scale=(1 / self.input_dim_), size=(self.input_dim_, output_dim))
 
     def compute_output(self, X: np.ndarray, **kwargs) -> np.ndarray:
         """
@@ -65,7 +69,9 @@ class FullyConnectedLayer(BaseModule):
         output: ndarray of shape (n_samples, output_dim)
             Value of function at point self.weights
         """
-        raise NotImplementedError()
+        X_ = np.insert(X, 0, 1, axis=1) if self.include_intercept_ else X
+
+        return self.activation_.compute_output(X=X_ @ self.weights, **kwargs)
 
     def compute_jacobian(self, X: np.ndarray, **kwargs) -> np.ndarray:
         """
@@ -81,7 +87,10 @@ class FullyConnectedLayer(BaseModule):
         output: ndarray of shape (input_dim, n_samples)
             Derivative with respect to self.weights at point self.weights
         """
-        raise NotImplementedError()
+        X_ = np.insert(X, 0, 1, axis=1) if self.include_intercept_ else X
+
+        # chain-rule: J_xw(activation) @ J_w(XW):
+        return np.einsum('ki,kj->kij', X_, self.activation_.compute_jacobian(X=X_ @ self.weights, **kwargs))
 
 
 class ReLU(BaseModule):
@@ -103,7 +112,7 @@ class ReLU(BaseModule):
         output: ndarray of shape (n_samples, input_dim)
             Data after performing the ReLU activation function
         """
-        raise NotImplementedError()
+        return np.maximum(X, 0)
 
     def compute_jacobian(self, X: np.ndarray, **kwargs) -> np.ndarray:
         """
@@ -119,14 +128,59 @@ class ReLU(BaseModule):
         output: ndarray of shape (n_samples,)
             Element-wise derivative of ReLU with respect to given data
         """
-        raise NotImplementedError()
+        derivative = np.where(X > 0, 1, 0)
+
+        # chain-rule: J_xw(relu) @ J_w(XW) - for each sample, turn its derivation to a diagonal matrix
+        return np.einsum('ij,kj->ikj', derivative, np.eye(derivative.shape[1], dtype=derivative.dtype))
+
+
+class Id(BaseModule):
+    """
+    Module of the identity activation function, computing the element-wise function: id(x)=x
+    I created that model in order to easily take care the edge case of no activation function
+    """
+
+    def compute_output(self, X: np.ndarray, **kwargs) -> np.ndarray:
+        """
+        Compute element-wise value of activation
+
+        Parameters:
+        -----------
+        X: ndarray of shape (n_samples, input_dim)
+            Input data to be passed through activation
+
+        Returns:
+        --------
+        output: ndarray of shape (n_samples, input_dim)
+            Data after performing the ReLU activation function
+        """
+        return X
+
+    def compute_jacobian(self, X: np.ndarray, **kwargs) -> np.ndarray:
+        """
+        Compute module derivative with respect to given data
+
+        Parameters:
+        -----------
+        X: ndarray of shape (n_samples, input_dim)
+            Input data to compute derivative with respect to
+
+        Returns:
+        -------
+        output: ndarray of shape (n_samples,)
+            Element-wise derivative of ReLU with respect to given data
+        """
+        derivative = np.ones(X.shape)
+
+        # turn derivative to diagonal matrix for each sample
+        return np.einsum('ij,kj->ikj', derivative, np.eye(derivative.shape[1], dtype=derivative.dtype))
 
 
 class CrossEntropyLoss(BaseModule):
     """
     Module of Cross-Entropy Loss: The Cross-Entropy between the Softmax of a sample x and e_k for a true class k
     """
-    def compute_output(self, X: np.ndarray, y: np.ndarray, **kwargs) -> np.ndarray:
+    def compute_output(self, X: np.ndarray, y: np.ndarray, **kwargs) -> float:
         """
         Computes the Cross-Entropy over the Softmax of given data, with respect to every
 
@@ -145,7 +199,7 @@ class CrossEntropyLoss(BaseModule):
         output: ndarray of shape (n_samples,)
             cross-entropy loss value of given X and y
         """
-        raise NotImplementedError()
+        return cross_entropy(y, softmax(X))
 
     def compute_jacobian(self, X: np.ndarray, y: np.ndarray, **kwargs) -> np.ndarray:
         """
@@ -164,5 +218,11 @@ class CrossEntropyLoss(BaseModule):
         output: ndarray of shape (n_samples, input_dim)
             derivative of cross-entropy loss with respect to given input
         """
-        raise NotImplementedError()
+        sm = softmax(X)
+
+        # b does one-hot encoding of y
+        b = np.zeros_like(sm)
+        b[np.arange(sm.shape[0]), y] = 1
+
+        return sm - b
 

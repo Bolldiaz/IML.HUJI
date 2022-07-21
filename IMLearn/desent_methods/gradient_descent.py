@@ -139,7 +139,7 @@ class GradientDescent:
 
             delta = np.linalg.norm(f.weights - w_t, ord=2)
 
-            self.callback_(weight=f.weights, val=f_val)
+            self.callback_(solver=self, weights=f.weights, val=f_val, grad=grad, t=t, eta=eta, delta=delta)
 
             w_t = f.weights
 
@@ -158,7 +158,3 @@ class GradientDescent:
 
         # self.out_type_ == OUTPUT_VECTOR_TYPE[2]:
         return np.mean(w_history, axis=1)
-
-
-
-

@@ -46,7 +46,7 @@ def plot_descent_path(module: Type[BaseModule],
 
     Example:
     --------
-    fig = plot_descent_path(IMLearn.desent_methods.modules.L1, np.ndarray([[1,1],[0,0]]))
+    fig = plot_descent_path(IMLearn.descent_methods.modules.L1, np.ndarray([[1,1],[0,0]]))
     fig.show()
     """
     def predict_(w):
@@ -60,7 +60,7 @@ def plot_descent_path(module: Type[BaseModule],
                                       title=f"GD Descent Path {title}"))
 
 
-def get_gd_state_recorder_callback() -> Tuple[Callable[[], None], List[np.ndarray], List[np.ndarray]]:
+def get_gd_state_recorder_callback() -> Tuple[Callable[[], None], List[np.ndarray], List[np.ndarray], List[np.ndarray]]:
     """
     Callback generator for the GradientDescent class, recording the objective's value and parameters at each iteration
 
@@ -76,20 +76,21 @@ def get_gd_state_recorder_callback() -> Tuple[Callable[[], None], List[np.ndarra
     weights: List[np.ndarray]
         Recorded parameters
     """
-    weights, vals = [], []
+    weights_, vals_, grads_ = [], [], []
 
-    def callback(weight: np.ndarray, val: np.ndarray) -> None:
-        vals.append(val)
-        weights.append(weight)
+    def callback(solver, weights, val, grad, t, eta, delta, batch_indices=None) -> None:
+        vals_.append(val)
+        weights_.append(weights)
+        grads_.append(grad)
 
-    return callback, weights, vals
+    return callback, vals_, grads_, weights_
 
 
 def compare_fixed_learning_rates(init: np.ndarray = np.array([np.sqrt(2), np.e / 3]),
                                  etas: Tuple[float] = (1, .1, .01, .001)):
     for eta in etas:
         for module, L in [(L1, "L1"), (L2, "L2")]:
-            callback, weights, vals = get_gd_state_recorder_callback()
+            callback, weights, grads, vals = get_gd_state_recorder_callback()
 
             GradientDescent(learning_rate=FixedLR(eta), callback=callback).fit(module(init), X=None, y=None)
             fig = plot_descent_path(module, np.asarray(weights), title=f"with module: {L} and LR: {eta}")
@@ -111,7 +112,7 @@ def compare_exponential_decay_rates(init: np.ndarray = np.array([np.sqrt(2), np.
     # Optimize the L1 objective using different decay-rate values of the exponentially decaying learning rate
     plots = []
     for g in gammas:
-        callback, weights, vals = get_gd_state_recorder_callback()
+        callback, weights, grads, vals = get_gd_state_recorder_callback()
         GradientDescent(learning_rate=ExponentialLR(eta, g), callback=callback).fit(L1(init), X=None, y=None)
         plots.append(go.Scatter(y=vals, mode='markers+lines', name=f"gamma={g}"))
 
@@ -125,7 +126,7 @@ def compare_exponential_decay_rates(init: np.ndarray = np.array([np.sqrt(2), np.
 
     # Plot descent path for gamma=0.95
     for i, L in enumerate([L1, L2]):
-        callback, weights, vals = get_gd_state_recorder_callback()
+        callback, weights, grads, vals = get_gd_state_recorder_callback()
         GradientDescent(ExponentialLR(eta, 0.95), callback=callback).fit(L(init), None, None)
         fig = plot_descent_path(L, np.asarray(weights), title=f"with model: L{i + 1} and gamma: 0.95")
         # fig.show()
@@ -213,5 +214,3 @@ if __name__ == '__main__':
     compare_fixed_learning_rates()
     compare_exponential_decay_rates()
     fit_logistic_regression()
-
-

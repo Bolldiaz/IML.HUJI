@@ -59,7 +59,7 @@ def accuracy(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     """
     if not y_true.size:
         raise ValueError("Cannot calculate accuracy with y_true of size 0")
-    return np.sum(y_true == y_pred) / y_true.size
+    return (y_true == y_pred).mean()
 
 
 def cross_entropy(y_true: np.ndarray, y_pred: np.ndarray) -> float:
@@ -77,7 +77,15 @@ def cross_entropy(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     -------
     Cross entropy of given predictions
     """
-    raise NotImplementedError()
+    # define lower/upper bounds for clipping, used to avoid overflow
+    lower_bound, upper_bound = 0.00001, 5000
+    y_pred = np.clip(y_pred, lower_bound, upper_bound)
+
+    # one hot encode y_true
+    e_k = np.zeros_like(y_pred)
+    e_k[np.arange(len(y_pred)), y_true] = 1
+
+    return -np.sum(e_k * np.log(y_pred), axis=1)
 
 
 def softmax(X: np.ndarray) -> np.ndarray:
@@ -93,4 +101,4 @@ def softmax(X: np.ndarray) -> np.ndarray:
     output: ndarray of shape (n_samples, n_features)
         Softmax(x) for every sample x in given data X
     """
-    raise NotImplementedError()
+    return np.exp(X) / np.sum(np.exp(X), axis=1, keepdims=True)

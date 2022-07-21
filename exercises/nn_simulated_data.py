@@ -1,15 +1,13 @@
-import numpy as np
-import pandas as pd
 from typing import Tuple, List
 from IMLearn.metrics.loss_functions import accuracy
-from IMLearn.learners.neural_networks.modules import FullyConnectedLayer, ReLU, CrossEntropyLoss
+from IMLearn.learners.neural_networks.modules import FullyConnectedLayer, ReLU, CrossEntropyLoss, Id
 from IMLearn.learners.neural_networks.neural_network import NeuralNetwork
 from IMLearn.desent_methods import GradientDescent, FixedLR
 from IMLearn.utils.utils import split_train_test
+from exercises.gradient_descent_investigation import get_gd_state_recorder_callback
 from utils import *
 
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 import plotly.io as pio
 pio.templates.default = "simple_white"
 
@@ -110,14 +108,86 @@ if __name__ == '__main__':
     # ---------------------------------------------------------------------------------------------#
     # Question 1: Fitting simple network with two hidden layers                                    #
     # ---------------------------------------------------------------------------------------------#
-    raise NotImplementedError()
+    # create callback and neural network
+    callback, values, grads, weights = get_gd_state_recorder_callback()
+
+    nn_1 = NeuralNetwork(
+        modules=[FullyConnectedLayer(input_dim=n_features, output_dim=16, activation=ReLU(),
+                                     include_intercept=True),
+                 FullyConnectedLayer(input_dim=16, output_dim=16, activation=ReLU(), include_intercept=True),
+                 FullyConnectedLayer(input_dim=16, output_dim=n_classes, activation=Id(),
+                                     include_intercept=True)],
+        loss_fn=CrossEntropyLoss(),
+        solver=GradientDescent(max_iter=5000, learning_rate=FixedLR(1e-1), callback=callback))
+
+    nn_1.fit(train_X, train_y)
+    print(accuracy(test_y, nn_1.predict(test_X)))
+
+    # ---------------------------------------------------------------------------------------------#
+    # Question 3: Plotting network convergence process                                             #
+    # ---------------------------------------------------------------------------------------------#
+
+    # plot decision boundary
+    fig = plot_decision_boundary(nn_1, lims, train_X, train_y, title="Simple Network")
+    fig.write_image(f"../figures/simple_network.png")
+    fig.show()
+
+    # take each 100th iteration of the gradient descent and plot the decision boundary
+    animate_decision_boundary(nn_1, weights[::100], lims, train_X, train_y, title="Simple Network",
+                              save_name="../figures/simple_network_animation.gif")
+
+    # plot convergence of the objective function
+    fig = go.Figure(data=[go.Scatter(x=list(range(len(values))), y=[np.sum(value) for value in values])],
+                    layout=go.Layout(title=r"$\text{Objective Function Convergence}$",
+                                     xaxis=dict(title=r"$\text{Iteration}$"),
+                                     yaxis=dict(title=r"$\text{Objective}$")))
+
+    # add norm of weights
+    fig.add_trace(go.Scatter(x=list(range(len(grads))), y=[np.linalg.norm(grad) for grad in grads]))
+    fig.show()
 
     # ---------------------------------------------------------------------------------------------#
     # Question 2: Fitting a network with no hidden layers                                          #
     # ---------------------------------------------------------------------------------------------#
-    raise NotImplementedError()
+    # repeat first part with a different network
+    nn_2 = NeuralNetwork(
+        modules=[FullyConnectedLayer(input_dim=n_features, output_dim=n_classes, activation=Id(),
+                                     include_intercept=False)],
+        loss_fn=CrossEntropyLoss(),
+        solver=GradientDescent(max_iter=5000, learning_rate=FixedLR(1e-1)))
+
+    nn_2.fit(train_X, train_y)
+    print(accuracy(test_y, nn_2.predict(test_X)))
+
+    fig = plot_decision_boundary(nn_2, lims, train_X, train_y, title="Simple Network")
+    fig.write_image(f"../figures/simple_network_no_hidden.png")
+    fig.show()
 
     # ---------------------------------------------------------------------------------------------#
-    # Question 3+4: Plotting network convergence process                                           #
+    # Question 4: Plotting network convergence process                                             #
     # ---------------------------------------------------------------------------------------------#
-    raise NotImplementedError()
+    callback, values, grads, weights = get_gd_state_recorder_callback()
+
+    nn_1 = NeuralNetwork(
+        modules=[FullyConnectedLayer(input_dim=n_features, output_dim=6, activation=ReLU(),
+                                     include_intercept=True),
+                 FullyConnectedLayer(input_dim=6, output_dim=6, activation=ReLU(), include_intercept=True),
+                 FullyConnectedLayer(input_dim=6, output_dim=n_classes, activation=Id(),
+                                     include_intercept=True)],
+        loss_fn=CrossEntropyLoss(),
+        solver=GradientDescent(max_iter=5000, learning_rate=FixedLR(1e-1), callback=callback))
+
+    nn_1.fit(train_X, train_y)
+
+    # take each 100th iteration of the gradient descent and plot the decision boundary
+    animate_decision_boundary(nn_1, weights[::100], lims, train_X, train_y, title="Simple Network",
+                              save_name="../figures/simple_network_animation.gif")
+
+    # plot convergence of the objective function
+    fig = go.Figure(data=[go.Scatter(x=list(range(len(values))), y=[np.sum(value) for value in values])],
+                    layout=go.Layout(title=r"$\text{Objective Function Convergence}$",
+                                     xaxis=dict(title=r"$\text{Iteration}$"),
+                                     yaxis=dict(title=r"$\text{Objective}$")))
+    # add norm of weights
+    fig.add_trace(go.Scatter(x=list(range(len(grads))), y=[np.linalg.norm(grad) for grad in grads]))
+    fig.show()
